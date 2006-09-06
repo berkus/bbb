@@ -1,0 +1,417 @@
+.\" Copyright (c) 1998-2003 Bart Massey
+.\" All Rights Reserved
+.\" Please see end of file for license information
+
+.TH BBB 3  "1 March 1993"
+.SH NAME
+bbb \- basic blackboard operations
+.SH SYNOPSIS
+.nf
+.ft B
+#include <bbb.h>
+.ft
+.fi
+.LP
+.nf
+.ft B
+typedef void callback( bboard bb, item d, item c,
+ datasiz ndata, datap data, wtid t, notice no )
+.ft
+.fi
+.LP
+.nf
+.ft B
+bboard bb_new( bb_names bnm )
+.ft
+.fi
+.LP
+.nf
+.ft B
+bboard bb_find( bb_names bnm )
+.ft
+.fi
+.LP
+.nf
+.ft B
+void bb_init( bboard bb, item p )
+.ft
+.fi
+.LP
+.nf
+.ft B
+item bb_new_area( bboard bb, item_names nm )
+.ft
+.fi
+.LP
+.fn
+.ft B
+item bb_new_datum( bboard bb, item_names nm, item_types tp, datap data )
+.ft
+.fi
+.LP
+.nf
+.ft B
+item bb_lookup( bboard bb, item a, item_names nm )
+.ft
+.fi
+.LP
+.nf
+.ft B
+void bb_prepend( bboard bb, wtid t, item a, item p )
+.ft
+.fi
+.LP
+.nf
+.ft B
+void bb_append( bboard bb, wtid t, item a, item p )
+.ft
+.fi
+.LP
+.nf
+.ft B
+void bb_insert_before( bboard bb, wtid t, item q, item p )
+.ft
+.fi
+.LP
+.nf
+.ft B
+void bb_insert_after( bboard bb, wtid t, item q, item p )
+.ft
+.fi
+.LP
+.nf
+.ft B
+void bb_unlink( bboard bb, wtid t, item p )
+.ft
+.fi
+.LP
+.nf
+.ft B
+void bb_delete( bboard bb, item p )
+.ft
+.fi
+.LP
+.nf
+.ft B
+wtid bb_set( bboard bb, wtid t, item d, datap data )
+.ft
+.fi
+.LP
+.nf
+.ft B
+callback_rec bb_watch( bboard bb, item a, callback *c,
+ datasiz ndata, datap data )
+.ft
+.fi
+.LP
+.nf
+.ft B
+void bb_unwatch( bboard bb, callback_rec cb )
+.ft
+.fi
+.LP
+.nf
+.ft B
+datap bb_datum( bboard bb, item d )
+.ft
+.fi
+.LP
+.nf
+.ft B
+item bb_parent( bboard bb, item p )
+.ft
+.fi
+.LP
+.nf
+.ft B
+item bb_first( bboard bb, item a )
+.ft
+.fi
+.LP
+.nf
+.ft B
+item bb_next( bboard bb, item d )
+.ft
+.fi
+.LP
+.nf
+.ft B
+item bb_last( bboard bb, item a )
+.ft
+.fi
+.SH DESCRIPTION
+.LP
+These routines form a ``basic blackboard'' package.
+Conceptually a basic blackboard is a tree of names,
+with the leaves being
+.IR name / type / value
+tuples.  The user program creates this space, and may
+attach to it ``callback functions,'' which will be invoked
+on changes to the blackboard.
+.LP
+Thus, bbb is useful for
+programs which can be conceptualized as a number of independent
+clients interacting with a common workspace.  Issues of synchronization
+and data sharing are completely handled by the blackboard.
+.LP
+To use bbb, you must supply the following:
+.TP
++
+Type definitions for the types
+.BR bb_names ", " item_names ", and " item_types .
+These types must be either integer or an enumerated type.
+.TP
++
+Definitions of the objects
+.BR bb_its " and " bb_nits .
+The former is a pointer to a list of unsigned integers indexed
+by item type, whose contents represent the sizes of elements
+of that type.  The latter is the number of elements in the list.
+.LP
+For example:
+.LP
+.RS
+.nf
+.ft B
+typedef enum {
+  DEMO_BB
+} bb_names;
+
+typedef enum {
+  DEMO_ITEM
+} item_names;
+
+typedef enum {
+  DEMO_TYPE,
+  MAX_TYPE
+} item_types;
+
+#include <bbb.h>
+
+static unsigned int item_type_sizes[MAX_TYPE] = {
+ sizeof( int )
+};
+unsigned int *bb_its = item_type_sizes;
+int bb_nits = MAX_TYPE;
+.ft
+.fi
+.RE
+.SH USAGE
+.LP
+A node of the blackboard is referred to as an ``item.''
+An interior node of the blackboard is referred to as an ``area,''
+and a leaf node as a ``datum.''
+All functions, unless otherwise specified, must be given a blackboard
+.I bb
+on which to operate.  Other arguments and semantics are described herein:
+.TP
+.B callback
+Callbacks are given the bulletin board
+.I bb
+on which they appear, the item
+.I d
+for which the callback was invoked,
+a size
+.I ndata
+and pointer
+.I data
+for user data (see
+.BR bb_watch "),"
+the transaction id
+.I t
+which must be given to all operations within the dynamic
+scope of the callback which may themselves trigger callbacks
+(this is the loop detection mechanism), the item
+.I d
+for which the callback was invoked, the item
+.I c
+which caused the callback,
+and a notice
+.I n
+of the reason for invoking the callback.  This notice will be one of:
+.RS
+.TP
+.B INSERT_NOTICE
+The item is an area.  An item has been inserted into it.
+.TP
+.B SET_NOTICE
+The item is a datum.  Its value has been set.
+.TP
+.B UNLINK_NOTICE
+The item is a datum.  It has been unlinked from the blackboard.
+.TP
+.B UNLINK_PARENT_NOTICE
+The item is an area.  One of its children has been unlinked.
+.RE
+.TP
+.B bb_new
+Given a name
+.IR bnm ,
+return a blackboard by that name.  The name is currently
+unused.
+.TP
+.B bb_find
+Given a name
+.IR bnm ,
+find and return a blackboard by that name.  This operation
+is currently unimplemented.
+.TP
+.B bb_init
+Given an item
+.IR p ,
+make that item be the root of the blackboard.
+It is an error for a root to already exist for the blackboard.
+.TP
+.B bb_new_area
+Create a new area for the blackboard, named
+.IR nm .
+.TP
+.B bb_new_datum
+Create a new datum for the blackboard, named
+.IR nm ,
+of type
+.IR tp ,
+with contents
+.IR data .
+The contents are copied to internal storage.
+.TP
+.B bb_lookup
+Given an area
+.IR a ,
+return the item in the area with name
+.IR nm ,
+or the special value
+.B NO_ITEM
+if not found.
+.TP
+.B bb_prepend
+Given a transaction id
+.I t
+and an area
+.IR a ,
+place the item
+.IR p
+at the head of the area.
+.TP
+.B bb_append
+Like bb_prepend, only place the item at the end.
+.TP
+.B bb_insert_before
+Like bb_prepend, only place the item immediately
+before the item
+.IR q ,
+which must be in the area.
+.TP
+.B bb_insert_after
+Like bb_insert_before, only place after the target.
+.TP
+.B bb_unlink
+As part of transaction
+.IR t ,
+remove the item
+.I p
+from the bboard structure.
+.TP
+.B bb_delete
+Free any memory associated with the item
+.IR p ,
+which must already be unlinked.
+.TP
+.B bb_set
+As part of transaction
+.IR t ,
+set the datum
+.I d
+to have data part
+.IR data .
+Note that the data is copied to internal storage.
+.TP
+.B bb_watch
+On the item
+.I p
+set the callback
+.I c
+with
+.I ndata
+bytes of user data
+pointed to by
+.IR data .
+Returns a callback record, which may be supplied to
+.BR bb_unwatch .
+.TP
+.B bb_unwatch
+Get rid of the callback associated with the record
+.IR cb .
+.TP
+.B bb_datum
+Returns the data portion of the datum
+.IR d .
+.TP
+.B bb_parent
+Returns the parent of the item
+.IR p ,
+or
+.BR NO_ITEM .
+.TP
+.B bb_first
+Returns the first element of the area
+.IR a ,
+or
+.BR NO_ITEM .
+.TP
+.B bb_next
+Returns the successor of the datum
+.IR d ,
+or
+.BR NO_ITEM .
+.TP
+.B bb_last
+Returns the last element of the area
+.IR a ,
+or
+.BR NO_ITEM .
+.SH NOTES
+.LP
+In the future, this should be implemented as a networked system.  The
+interface was designed to allow the clients to communicate
+across a network transparently, so implementation shouldn't
+be too difficult.
+.SH BUGS
+.LP
+There really is no way to handle errors inline.  Currently
+they just cause the user program to abort.
+.LP
+Callback loops are merely detected, and merely cause the user
+program to abort.  It would be nice to avoid callback loops,
+and/or to allow the user program to handle them gracefully.
+.LP
+The blackboard is always assumed to be a tree.  It is difficult
+and expensive to detect other kinds of directed graphs, but
+we should probably do it anyhow.
+.LP
+.B C
+is not a good language for this sort of thing \*- the requirement
+that the user supply strictly formatted adjunct information about
+types and sizes is archaic and annoying.
+
+.\" Permission is hereby granted, free of charge, to any person
+.\" obtaining a copy of this software and associated
+.\" documentation files (the "Software"), to deal in the
+.\" Software without restriction, including without limitation
+.\" the rights to use, copy, modify, merge, publish, distribute,
+.\" sublicense, and/or sell copies of the Software, and to
+.\" permit persons to whom the Software is furnished to do so,
+.\" subject to the following conditions:
+.\" 
+.\" The above copyright notice and this permission notice shall
+.\" be included in all copies or substantial portions of the
+.\" Software.
+.\" 
+.\" THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY
+.\" KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE
+.\" WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR
+.\" PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS
+.\" OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR
+.\" OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR
+.\" OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
+.\" SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
